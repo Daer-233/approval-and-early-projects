@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "autocad": {
+      "command": "python",
+      "args": ["G:\\software\\Autocad-MCP-main\\server.py"],
+      "env": {
+        "AUTOCAD_MCP_BACKEND": "auto",
+        "ALLOWED_PATHS": "I:\\AI_Develop"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "label2id": {
+    "daily_question": 0,
+    "professional_question": 1
+  },
+  "id2label": {
+    "0": "daily_question",
+    "1": "professional_question"
+  }
+}

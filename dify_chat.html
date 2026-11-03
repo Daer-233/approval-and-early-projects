@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 智能问答助手</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #121212; --surface: #1e1e1e; --surface2: #2a2a2a; --border: #333;
+  --text: #e0e0e0; --text-secondary: #999; --accent: #6366F1; --accent-hover: #7577f5;
+  --user-bubble: #6366F1; --ai-bubble: #2a2a2a; --error: #ef4444;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--text); height: 100vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+.header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; min-height: 56px;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
+.header-title { font-size: 16px; font-weight: 600; }
+.header-subtitle { font-size: 12px; color: var(--text-secondary); }
+.btn-new-chat {
+  padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--text); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: .15s;
+}
+.btn-new-chat:hover { background: var(--surface2); border-color: #555; }
+
+.chat-container {
+  flex: 1; overflow-y: auto; padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.chat-container::-webkit-scrollbar { width: 6px; }
+.chat-container::-webkit-scrollbar-track { background: transparent; }
+.chat-container::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+.welcome {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; color: var(--text-secondary); padding: 40px; text-align: center;
+}
+.welcome-icon { width: 64px; height: 64px; background: var(--accent); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 28px; }
+.welcome h2 { font-size: 22px; color: var(--text); font-weight: 600; }
+.welcome-suggestions { display: flex; flex-wrap: wrap; gap: 8px; max-width: 420px; justify-content: center; margin-top: 8px; }
+.suggestion-chip { padding: 8px 14px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: .15s; }
+.suggestion-chip:hover { background: var(--surface2); border-color: #555; color: var(--text); }
+
+.message { display: flex; gap: 10px; max-width: 80%; }
+.message.user { align-self: flex-end; flex-direction: row-reverse; }
+.message.assistant { align-self: flex-start; }
+.avatar { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.message.user .avatar { background: var(--accent); color: #fff; }
+.message.assistant .avatar { background: var(--surface2); color: var(--accent); }
+.bubble { padding: 12px 16px; border-radius: 12px; line-height: 1.6; font-size: 14px; word-break: break-word; }
+.message.user .bubble { background: var(--user-bubble); color: #fff; border-bottom-right-radius: 4px; }
+.message.assistant .bubble { background: var(--ai-bubble); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+.bubble p { margin: 0 0 8px; } .bubble p:last-child { margin: 0; }
+.bubble code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: monospace; }
+.bubble pre { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
+.bubble pre code { background: none; padding: 0; }
+.bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+.bubble li { margin: 2px 0; }
+
+.streaming-cursor::after { content: "|"; animation: blink .8s infinite; color: var(--accent); font-weight: 100; }
+@keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+
+.typing-indicator { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-secondary); animation: bounce 1.2s infinite; }
+.typing-dot:nth-child(2){animation-delay:.2s} .typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-6px);opacity:1} }
+
+.error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--error); padding: 8px 14px; border-radius: 8px; font-size: 13px; text-align: center; }
+
+.input-area {
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 16px 20px; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;
+}
+.input-wrapper { flex: 1; position: relative; }
+.input-wrapper textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 16px; color: var(--text); font-size: 14px; font-family: inherit; line-height: 1.5;
+  resize: none; outline: none; max-height: 120px; transition: border-color .15s;
+}
+.input-wrapper textarea:focus { border-color: var(--accent); }
+.input-wrapper textarea::placeholder { color: #555; }
+.btn-send {
+  width: 40px; height: 40px; border: none; border-radius: 10px;
+  background: var(--accent); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: .15s;
+}
+.btn-send:hover { background: var(--accent-hover); }
+.btn-send:disabled { background: var(--surface2); cursor: not-allowed; opacity: .5; }
+.btn-send svg { width: 18px; height: 18px; }
+.btn-stop {
+  width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface2); color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.btn-stop:hover { background: #444; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">AI</div>
+    <div>
+      <div class="header-title">智能问答助手</div>
+      <div class="header-subtitle">Powered by Dify &middot; DeepSeek-V4</div>
+    </div>
+  </div>
+  <button class="btn-new-chat" id="btnNewChat">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    新对话
+  </button>
+</div>
+
+<div class="chat-container" id="chatContainer">
+  <div class="welcome" id="welcomeScreen">
+    <div class="welcome-icon">AI</div>
+    <h2>你好，有什么可以帮你的？</h2>
+    <p>我是你的智能助手，可以回答问题、提供建议、进行创作</p>
+    <div class="welcome-suggestions">
+      <span class="suggestion-chip">介绍一下你自己</span>
+      <span class="suggestion-chip">今天天气怎么样</span>
+      <span class="suggestion-chip">帮我写一段代码</span>
+      <span class="suggestion-chip">给我讲个笑话</span>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-wrapper">
+    <textarea id="userInput" rows="1" placeholder="输入你的问题..."></textarea>
+  </div>
+  <button class="btn-send" id="btnSend">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+  </button>
+  <button class="btn-stop" id="btnStop" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+  </button>
+</div>
+
+<script>
+var API_KEY = "REPLACE_ME";
+var API_URL = "http://192.168.1.121/v1/chat-messages";
+
+var chatContainer = document.getElementById("chatContainer");
+var userInput = document.getElementById("userInput");
+var btnSend = document.getElementById("btnSend");
+var btnStop = document.getElementById("btnStop");
+var btnNewChat = document.getElementById("btnNewChat");
+
+var conversationId = "";
+var isStreaming = false;
+var abortController = null;
+
+// ---- Utility ----
+function scrollToBottom() {
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
+// ---- Markdown ----
+function formatMarkdown(text) {
+  if (!text) return "";
+  var html = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, function(_, lang, code) { return "<pre><code>" + code.trim() + "</code></pre>"; });
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^## (.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^# (.+)$/gm, "<h2>$1</h2>");
+  html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>");
+  html = html.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
+  html = html.replace(/\n\n+/g, "<br><br>");
+  html = html.replace(/\n/g, "<br>");
+  return html;
+}
+
+function stripThinking(text) {
+  var cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, "");
+  var idx = cleaned.indexOf("<think>");
+  if (idx !== -1) cleaned = cleaned.substring(0, idx);
+  return cleaned.trim();
+}
+
+// ---- DOM helpers ----
+function removeWelcome() {
+  var el = document.getElementById("welcomeScreen");
+  if (el) el.remove();
+}
+
+function addUserMessage(text) {
+  removeWelcome();
+  var div = document.createElement("div");
+  div.className = "message user";
+  div.innerHTML = '<div class="avatar">U</div><div class="bubble">' + formatMarkdown(text) + '</div>';
+  chatContainer.appendChild(div);
+  scrollToBottom();
+  console.log("[DOM] User message added. Total children:", chatContainer.children.length);
+}
+
+function createAIBubble() {
+  removeWelcome();
+  var div = document.createElement("div");
+  div.className = "message assistant";
+  div.innerHTML = '<div class="avatar">AI</div><div class="bubble"></div>';
+  chatContainer.appendChild(div);
+  var bubble = div.querySelector(".bubble");
+  scrollToBottom();
+  console.log("[DOM] AI bubble created. Total children:", chatContainer.children.length);
+  return bubble;
+}
+
+function showThinking(bubble) {
+  bubble.classList.add("streaming-cursor");
+  bubble.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+}
+
+function appendStreamChunk(bubble, fullText) {
+  var cleaned = stripThinking(fullText);
+  bubble.textContent = cleaned;
+  bubble.classList.add("streaming-cursor");
+  scrollToBottom();
+}
+
+function finalizeBubble(bubble, fullText) {
+  var cleaned = stripThinking(fullText);
+  bubble.classList.remove("streaming-cursor");
+  if (cleaned) {
+    bubble.innerHTML = formatMarkdown(cleaned);
+  } else {
+    bubble.innerHTML = "<em>无响应内容</em>";
+  }
+}
+
+function showError(text) {
+  var div = document.createElement("div");
+  div.className = "error-banner";
+  div.textContent = text;
+  chatContainer.appendChild(div);
+  scrollToBottom();
+  setTimeout(function() { div.remove(); }, 5000);
+}
+
+// ---- UI state ----
+function setUIForStreaming(active) {
+  isStreaming = active;
+  btnSend.style.display = active ? "none" : "flex";
+  btnStop.style.display = active ? "flex" : "none";
+  userInput.disabled = active;
+}
+
+function abortStream() {
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+}
+
+// ---- NEW CHAT ----
+function newChat() {
+  if (isStreaming) return;
+  conversationId = "";
+  chatContainer.innerHTML = '<div class="welcome" id="welcomeScreen"><div class="welcome-icon">AI</div><h2>你好，有什么可以帮你的？</h2><p>我是你的智能助手，可以回答问题、提供建议、进行创作</p><div class="welcome-suggestions"><span class="suggestion-chip">介绍一下你自己</span><span class="suggestion-chip">今天天气怎么样</span><span class="suggestion-chip">帮我写一段代码</span><span class="suggestion-chip">给我讲个笑话</span></div></div>';
+  userInput.value = "";
+  userInput.style.height = "auto";
+  userInput.focus();
+  // Re-bind suggestion clicks
+  document.querySelectorAll(".suggestion-chip").forEach(function(chip) {
+    chip.onclick = function() { userInput.value = chip.textContent; sendMessage(); };
+  });
+}
+
+// ---- CORE: Send Message ----
+async function sendMessage() {
+  if (isStreaming) return;
+  var query = userInput.value.trim();
+  if (!query) return;
+
+  userInput.value = "";
+  userInput.style.height = "auto";
+
+  // Step 1: Add user message
+  addUserMessage(query);
+
+  // Step 2: Create AI bubble
+  var bubble = createAIBubble();
+  showThinking(bubble);
+  setUIForStreaming(true);
+
+  abortController = new AbortController();
+  var fullText = "";
+  var startedStreaming = false;
+
+  try {
+    var response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": "REPLACE_ME" + API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: query,
+        user: "web-user",
+        response_mode: "streaming",
+        conversation_id: conversationId,
+        inputs: {},
+      }),
+      signal: abortController.signal,
+    });
+
+    if (!response.ok) throw new Error("HTTP " + response.status);
+
+    console.log("[SSE] Fetch OK. Reading stream...");
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = "";
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      // Normalize CRLF to LF (nginx sends \r\n)
+      buf = buf.replace(/\r\n/g, "\n");
+
+      // Process complete SSE events (delimited by \n\n)
+
+      // Process complete lines, keep incomplete last line in buf
+      var lines = buf.split("\n");
+      buf = lines.pop() || "";
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line.startsWith("event: ")) continue;
+        if (!line.startsWith("data: ")) continue;
+        var dataStr = line.slice(6);
+        if (!dataStr.trim()) continue;
+
+        try {
+          var data = JSON.parse(dataStr);
+          if (data.conversation_id && !conversationId) conversationId = data.conversation_id;
+          if (data.event === "message" && typeof data.answer === "string") {
+            if (!startedStreaming) { startedStreaming = true; console.log("[SSE] First message event received"); }
+            fullText += data.answer;
+            appendStreamChunk(bubble, fullText);
+          }
+          if (data.event === "error") throw new Error(data.message || "Server error");
+          // Handle workflow/node errors
+          if (data.event === "workflow_finished" && data.data && data.data.error) {
+            throw new Error("Workflow error: " + (data.data.error.substring(0, 100)));
+          }
+          if (data.event === "node_finished" && data.data && data.data.status === "failed" && data.data.error) {
+            console.warn("[SSE] Node failed:", data.data.title, data.data.error.substring(0, 80));
+          }
+        } catch (e) {
+          if (e.message && e.message.indexOf("Unexpected") !== 0 && e.message !== "Unexpected end of JSON input") throw e;
+        }
+      }
+    }
+
+    console.log("[SSE] Stream ended. fullText length:", fullText.length);
+    finalizeBubble(bubble, fullText);
+
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("[SSE] Aborted by user");
+      finalizeBubble(bubble, fullText || "(已停止)");
+    } else {
+      console.error("[SSE] Error:", err.message);
+      showError("请求失败: " + err.message);
+      bubble.innerHTML = "<em>请求出错了，请重试</em>";
+      bubble.classList.remove("streaming-cursor");
+    }
+  } finally {
+    abortController = null;
+    setUIForStreaming(false);
+    bubble = null;
+    userInput.focus();
+    console.log("[DOM] sendMessage done. Total children:", chatContainer.children.length);
+  }
+}
+
+// ---- Event bindings ----
+userInput.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+userInput.addEventListener("input", function() { autoResize(this); });
+btnSend.addEventListener("click", sendMessage);
+btnStop.addEventListener("click", abortStream);
+btnNewChat.addEventListener("click", newChat);
+
+// Suggestion chips
+document.querySelectorAll(".suggestion-chip").forEach(function(chip) {
+  chip.addEventListener("click", function() {
+    userInput.value = chip.textContent;
+    sendMessage();
+  });
+});
+
+console.log("[Init] Page loaded. chatContainer:", chatContainer.tagName, "children:", chatContainer.children.length);
+userInput.focus();
+</script>
+</body>
+</html>

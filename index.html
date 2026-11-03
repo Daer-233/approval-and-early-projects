@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能问答助手 - Dify</title>
+<style>
+  :root {
+    --primary: #155eef;
+    --primary-hover: #1249c2;
+    --bg: #f5f7fa;
+    --sidebar-bg: #ffffff;
+    --chat-bg: #ffffff;
+    --user-bubble: #155eef;
+    --user-text: #ffffff;
+    --bot-bubble: #f0f2f5;
+    --bot-text: #1d1d1f;
+    --border: #e5e7eb;
+    --text-secondary: #6b7280;
+    --text-primary: #1d1d1f;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --radius: 12px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    height: 100vh;
+    display: flex;
+    color: var(--text-primary);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 280px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-header .logo svg { width: 28px; height: 28px; }
+
+  .sidebar-header .subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  .btn-new-chat {
+    margin: 16px;
+    padding: 10px 16px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.2s;
+  }
+
+  .btn-new-chat:hover { background: var(--primary-hover); }
+
+  .conversation-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .conv-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+  }
+
+  .conv-item:hover { background: var(--bot-bubble); }
+  .conv-item.active { background: #e8edfb; color: var(--primary); font-weight: 500; }
+
+  .conv-item .title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .conv-item .del-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    font-size: 16px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .conv-item:hover .del-btn { opacity: 1; }
+  .conv-item .del-btn:hover { color: #e53e3e; background: #fef2f2; }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  /* ── Main Chat ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .chat-header {
+    padding: 16px 24px;
+    background: var(--chat-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .chat-header .title { font-size: 16px; font-weight: 600; }
+  .chat-header .status {
+    font-size: 12px;
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .chat-header .status::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  /* ── Messages ── */
+  .message {
+    display: flex;
+    gap: 10px;
+    max-width: 85%;
+    animation: msgIn 0.2s ease;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .message.user .avatar { background: var(--primary); color: #fff; }
+  .message.assistant .avatar { background: #e0e7ff; color: var(--primary); }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.65;
+    word-break: break-word;
+  }
+
+  .message.user .bubble {
+    background: var(--user-bubble);
+    color: var(--user-text);
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.assistant .bubble {
+    background: var(--bot-bubble);
+    color: var(--bot-text);
+    border-bottom-left-radius: 4px;
+  }
+
+  .message.assistant .bubble p { margin: 0 0 8px 0; }
+  .message.assistant .bubble p:last-child { margin-bottom: 0; }
+  .message.assistant .bubble code {
+    background: #dde1e7;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+  .message.assistant .bubble pre {
+    background: #1e1e2e;
+    color: #e0e0e0;
+    padding: 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .message.assistant .bubble pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  .message .time {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* ── Spinning loader ── */
+  .loader-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+
+  .loader-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2.5px solid #e0e0e0;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Typing indicator ── */
+  .typing .bubble {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 16px 20px;
+  }
+
+  .typing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #a0aec0;
+    animation: typingBounce 1.4s infinite ease-in-out both;
+  }
+
+  .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+  .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+  /* ── Thinking / Reasoning panel ── */
+  .think-panel {
+    margin-bottom: 10px;
+    border: 1px solid #d4c5f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f8f5ff;
+    font-size: 13px;
+  }
+
+  .think-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #7c4dff;
+    font-weight: 500;
+    user-select: none;
+    transition: background 0.15s;
+  }
+
+  .think-header:hover { background: #efe8ff; }
+
+  .think-arrow {
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+
+  .think-collapsed .think-arrow {
+    transform: rotate(-90deg);
+  }
+
+  .think-body {
+    padding: 10px 14px;
+    border-top: 1px solid #d4c5f0;
+    color: #5c4d8a;
+    line-height: 1.55;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  .think-collapsed .think-body {
+    display: none;
+  }
+
+  .think-done .think-header { color: #9c7cf4; }
+
+  @keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Input ── */
+  .input-area {
+    padding: 16px 24px;
+    background: var(--chat-bg);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--bg);
+    border-radius: 16px;
+    padding: 8px 8px 8px 18px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--primary);
+    background: #fff;
+  }
+
+  .input-wrapper textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    resize: none;
+    font-size: 15px;
+    font-family: var(--font);
+    line-height: 1.5;
+    max-height: 120px;
+    outline: none;
+    padding: 6px 0;
+  }
+
+  .input-wrapper textarea::placeholder { color: #adb5bd; }
+
+  .btn-send {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .btn-send:hover { background: var(--primary-hover); transform: scale(1.05); }
+  .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; }
+  .btn-send svg { width: 18px; height: 18px; }
+
+  .btn-stop {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #e53e3e;
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-stop svg { width: 18px; height: 18px; }
+
+  .input-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+
+  /* ── Welcome screen ── */
+  .welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+  }
+
+  .welcome-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #155eef, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .welcome h2 { font-size: 24px; margin-bottom: 8px; }
+  .welcome p { color: var(--text-secondary); font-size: 15px; max-width: 400px; line-height: 1.6; }
+
+  .suggestions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 24px;
+  }
+
+  .suggestion-chip {
+    padding: 8px 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-primary);
+  }
+
+  .suggestion-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #f5f8ff;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .message { max-width: 92%; }
+    .messages-container { padding: 16px; }
+    .input-area { padding: 12px 16px; }
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1d1d1f;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; }
+  .toast.error { background: #e53e3e; }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      </svg>
+      智能问答
+    </div>
+    <div class="subtitle">Powered by Dify</div>
+  </div>
+
+  <button class="btn-new-chat" onclick="newConversation()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    新对话
+  </button>
+
+  <div class="conversation-list" id="convList"></div>
+
+  <div class="sidebar-footer">Dify API · 流式输出</div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="chat-header">
+    <span class="title" id="chatTitle">智能问答助手</span>
+    <span class="status">在线</span>
+  </div>
+
+  <div class="messages-container" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+      </div>
+      <h2>你好，我是智能问答助手</h2>
+      <p>基于 Dify 平台构建的 AI 助手，可以帮你解答各种问题。试试下面的问题吧。</p>
+      <div class="suggestions">
+        <button class="suggestion-chip" onclick="sendSuggestion('请简单介绍一下你自己')">👋 介绍一下你自己</button>
+        <button class="suggestion-chip" onclick="sendSuggestion('帮我写一份工作计划')">📋 写一份工作计划</button>
+        <button class="suggestion-chip" onclick="sendSuggestion('解释一下机器学习的基本概念')">🧠 什么是机器学习</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrapper" id="inputWrapper">
+      <textarea
+        id="userInput"
+        rows="1"
+        placeholder="输入你的问题..."
+        onkeydown="handleKeyDown(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="btn-send" id="btnSend" onclick="sendMessage()" title="发送">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+      <button class="btn-stop" id="btnStop" onclick="stopStreaming()" title="停止">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="1"/>
+        </svg>
+      </button>
+    </div>
+    <div class="input-hint">按 Enter 发送，Shift + Enter 换行</div>
+  </div>
+</main>
+
+<script>
+// ── Configuration ──
+const API_URL = '/api/chat';
+// API Key handled server-side via Netlify environment variable
+
+// ── State ──
+let currentConvUuid = '';   // Dify's real conversation UUID (valid UUID from API)
+let conversationId = '';     // local conversation ID (for localStorage tracking)
+let conversations = loadConversations();
+let isStreaming = false;
+let abortController = null;
+
+// ── DOM refs ──
+const messagesEl = document.getElementById('messages');
+const userInput = document.getElementById('userInput');
+const btnSend = document.getElementById('btnSend');
+const btnStop = document.getElementById('btnStop');
+const welcome = document.getElementById('welcome');
+const chatTitle = document.getElementById('chatTitle');
+const toastEl = document.getElementById('toast');
+const convList = document.getElementById('convList');
+
+// ── Conversations (localStorage) ──
+function loadConversations() {
+  try {
+    return JSON.parse(localStorage.getItem('dify_conversations') || '[]');
+  } catch { return []; }
+}
+
+function saveConversations() {
+  localStorage.setItem('dify_conversations', JSON.stringify(conversations));
+}
+
+function getActiveConv() {
+  return conversations.find(c => c.id === conversationId) || null;
+}
+
+function updateConvTitle(text) {
+  const conv = getActiveConv();
+  if (conv) {
+    conv.title = text.substring(0, 40) || '新对话';
+    conv.updatedAt = Date.now();
+    saveConversations();
+    renderConvList();
+  }
+}
+
+function renderConvList() {
+  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+  convList.innerHTML = sorted.map(c =>
+    `<div class="conv-item${c.id === conversationId ? ' active' : ''}" onclick="switchConversation('${c.id}')">
+      <span class="title">${escapeHtml(c.title || '新对话')}</span>
+      <button class="del-btn" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="删除">×</button>
+    </div>`
+  ).join('');
+}
+
+function newConversation() {
+  const id = 'conv_' + Date.now();
+  conversations.push({ id, title: '新对话', createdAt: Date.now(), updatedAt: Date.now(), messages: [], difyUuid: '' });
+  saveConversations();
+  switchConversation(id);
+}
+
+function switchConversation(id) {
+  conversationId = id;
+  const conv = getActiveConv();
+  currentConvUuid = conv ? (conv.difyUuid || '') : '';
+  messagesEl.innerHTML = '';
+  if (conv && conv.messages && conv.messages.length > 0) {
+    welcome.style.display = 'none';
+    conv.messages.forEach(m => {
+      if (m.role === 'assistant' && m.content.includes('<think>')) {
+        appendMessageWithThinking(m.content, false);
+      } else {
+        appendMessage(m.role, m.content, false);
+      }
+    });
+  } else {
+    // No messages — show welcome. Re-append it since innerHTML wiped it.
+    welcome.style.display = 'flex';
+    messagesEl.appendChild(welcome);
+  }
+  chatTitle.textContent = conv ? conv.title : '智能问答助手';
+  renderConvList();
+  scrollToBottom();
+  userInput.focus();
+}
+
+function deleteConversation(id) {
+  conversations = conversations.filter(c => c.id !== id);
+  saveConversations();
+  if (conversationId === id) {
+    if (conversations.length > 0) {
+      switchConversation(conversations[0].id);
+    } else {
+      conversationId = '';
+      currentConvUuid = '';
+      // Clear all messages and re-show welcome
+      const allMsgs = messagesEl.querySelectorAll('.message');
+      allMsgs.forEach(m => m.remove());
+      welcome.style.display = 'flex';
+      messagesEl.appendChild(welcome);
+      chatTitle.textContent = '智能问答助手';
+    }
+  }
+  renderConvList();
+}
+
+function saveMessage(role, content) {
+  const conv = getActiveConv();
+  if (conv) {
+    conv.messages.push({ role, content });
+    saveConversations();
+  }
+}
+
+function appendMessageWithThinking(content, animate = true) {
+  if (welcome.style.display !== 'none') welcome.style.display = 'none';
+  const { thinking, answer } = extractThinking(content);
+
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+
+  let html = '';
+  if (thinking) {
+    html += `<div class="think-panel think-done">
+      <div class="think-header" onclick="this.parentElement.classList.toggle('think-collapsed')">
+        <span class="think-arrow">▼</span>
+        <span>已完成深度思考</span>
+      </div>
+      <div class="think-body">${renderMarkdown(thinking)}</div>
+    </div>`;
+  }
+  html += renderMarkdown(answer);
+
+  div.innerHTML = `
+    <div class="avatar">AI</div>
+    <div>
+      <div class="bubble">${html || '<em>暂无回复</em>'}</div>
+      <div class="time">${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</div>
+    </div>
+  `;
+
+  if (!animate) div.style.animation = 'none';
+  messagesEl.appendChild(div);
+  scrollToBottom();
+}
+
+// ── Messages ──
+function appendMessage(role, content, animate = true) {
+  if (welcome.style.display !== 'none') welcome.style.display = 'none';
+
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+
+  const avatarText = role === 'user' ? '我' : 'AI';
+
+  div.innerHTML = `
+    <div class="avatar">${avatarText}</div>
+    <div>
+      <div class="bubble">${role === 'user' ? escapeHtml(content) : renderMarkdown(content)}</div>
+      <div class="time">${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</div>
+    </div>
+  `;
+
+  if (!animate) div.style.animation = 'none';
+  messagesEl.appendChild(div);
+  scrollToBottom();
+}
+
+function createStreamingMessage() {
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = 'streamingMsg';
+  div.innerHTML = `
+    <div class="avatar">AI</div>
+    <div>
+      <div class="bubble" id="streamingBubble">
+        <div class="loader-wrapper">
+          <div class="loader-spinner"></div>
+          <span style="font-size:13px;color:var(--text-secondary);">正在处理...</span>
+        </div>
+      </div>
+    </div>
+  `;
+  messagesEl.appendChild(div);
+  return div;
+}
+
+function getStreamingBubble() {
+  return document.getElementById('streamingBubble');
+}
+
+function removeStreamingMessage() {
+  const el = document.getElementById('streamingMsg');
+  if (el) el.remove();
+}
+
+function finalizeStreamingMessage(content) {
+  const el = document.getElementById('streamingMsg');
+  if (el) {
+    el.removeAttribute('id');
+    const bubble = el.querySelector('.bubble');
+    bubble.removeAttribute('id');
+    const { thinking, answer } = extractThinking(content);
+    let html = '';
+    if (thinking) {
+      html += `<div class="think-panel think-done">
+        <div class="think-header" onclick="this.parentElement.classList.toggle('think-collapsed')">
+          <span class="think-arrow">▼</span>
+          <span>已完成深度思考</span>
+        </div>
+        <div class="think-body">${renderMarkdown(thinking)}</div>
+      </div>`;
+    }
+    html += renderMarkdown(answer);
+    bubble.innerHTML = html || '<em>暂无回复</em>';
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'time';
+    timeDiv.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    el.querySelector('div:last-child').appendChild(timeDiv);
+  }
+}
+
+// ── Streaming ──
+async function sendMessage() {
+  const text = userInput.value.trim();
+  if (!text || isStreaming) return;
+
+  if (!conversationId) newConversation();
+
+  userInput.value = '';
+  userInput.style.height = 'auto';
+  btnSend.disabled = true;
+
+  appendMessage('user', text);
+  saveMessage('user', text);
+
+  // Update title from first message
+  const conv = getActiveConv();
+  if (conv && (!conv.messages || conv.messages.length <= 1)) {
+    updateConvTitle(text);
+  }
+
+  createStreamingMessage();
+  showStreamingState(true);
+
+  let fullAnswer = '';
+  let nodeStatus = '';  // Current workflow node status text
+  abortController = new AbortController();
+
+  // Build request body — always include conversation_id (even if empty)
+  const body = {
+    query: text,
+    user: 'web-user',
+    response_mode: 'streaming',
+    conversation_id: currentConvUuid,
+    inputs: {},
+  };
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Authorization handled server-side by Netlify Function
+      },
+      body: JSON.stringify(body),
+      signal: abortController.signal,
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errBody}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const dataStr = line.slice(6).trim();
+        if (!dataStr) continue;
+
+        try {
+          const parsed = JSON.parse(dataStr);
+
+          // Track conversation_id from any event
+          if (parsed.conversation_id && !currentConvUuid) {
+            currentConvUuid = parsed.conversation_id;
+            const activeConv = getActiveConv();
+            if (activeConv) {
+              activeConv.difyUuid = parsed.conversation_id;
+              saveConversations();
+            }
+          }
+
+          // Dify workflow events: track knowledge retrieval status
+          if (parsed.event === 'node_started') {
+            if (parsed.data && (parsed.data.node_type === 'knowledge-retrieval' ||
+                parsed.data.title === '知识检索' || parsed.data.title === 'Knowledge Retrieval')) {
+              nodeStatus = '检索中';
+              const bubble = getStreamingBubble();
+              if (bubble) {
+                bubble.innerHTML = `<div class="loader-wrapper">
+                  <div class="loader-spinner"></div>
+                  <span style="font-size:13px;color:#7c4dff;">正在检索知识库...</span>
+                </div>`;
+              }
+            }
+          } else if (parsed.event === 'node_finished') {
+            if ((parsed.data && parsed.data.node_type === 'knowledge-retrieval') ||
+                nodeStatus === '检索中') {
+              nodeStatus = '';
+            }
+          }
+
+          // Dify puts event type in the JSON data, not in SSE "event:" lines
+          if (parsed.event === 'message' && typeof parsed.answer === 'string') {
+            fullAnswer += parsed.answer;
+            const bubble = getStreamingBubble();
+            if (bubble) {
+              const { thinking, answer, isThinking } = extractThinking(fullAnswer);
+              let html = '';
+              if (thinking) {
+                html += `<div class="think-panel${isThinking ? '' : ' think-done'}">
+                  <div class="think-header" onclick="this.parentElement.classList.toggle('think-collapsed')">
+                    <span class="think-arrow">▼</span>
+                    <span>${isThinking ? '深度思考中...' : '已完成深度思考'}</span>
+                  </div>
+                  <div class="think-body">${renderMarkdown(thinking)}</div>
+                </div>`;
+              }
+              if (answer) {
+                html += renderMarkdown(answer);
+              }
+              bubble.innerHTML = html;
+            }
+            scrollToBottom();
+          } else if (parsed.event === 'message_end') {
+            if (parsed.conversation_id) {
+              currentConvUuid = parsed.conversation_id;
+              const activeConv = getActiveConv();
+              if (activeConv) {
+                activeConv.difyUuid = parsed.conversation_id;
+                saveConversations();
+              }
+            }
+          } else if (parsed.event === 'error') {
+            throw new Error(parsed.message || 'Server error');
+          }
+        } catch (e) {
+          if (e.message && !e.message.includes('JSON')) throw e;
+        }
+      }
+    }
+
+    const { answer: displayText } = extractThinking(fullAnswer);
+    if (displayText) {
+      finalizeStreamingMessage(fullAnswer);
+      saveMessage('assistant', fullAnswer);
+    } else {
+      finalizeStreamingMessage(fullAnswer);
+      saveMessage('assistant', fullAnswer);
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      finalizeStreamingMessage(fullAnswer + '\n\n*[已停止]*');
+      saveMessage('assistant', fullAnswer);
+    } else {
+      removeStreamingMessage();
+      showToast(`请求失败: ${err.message}`, 'error');
+      console.error('Stream error:', err);
+    }
+  } finally {
+    showStreamingState(false);
+    btnSend.disabled = false;
+    userInput.focus();
+    abortController = null;
+  }
+}
+
+function stopStreaming() {
+  if (abortController) {
+    abortController.abort();
+  }
+}
+
+function showStreamingState(streaming) {
+  isStreaming = streaming;
+  btnSend.style.display = streaming ? 'none' : 'flex';
+  btnStop.style.display = streaming ? 'flex' : 'none';
+}
+
+// ── Helpers ──
+function sendSuggestion(text) {
+  userInput.value = text;
+  sendMessage();
+}
+
+function handleKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+}
+
+function showToast(msg, type = '') {
+  toastEl.textContent = msg;
+  toastEl.className = 'toast ' + type + ' show';
+  clearTimeout(toastEl._timeout);
+  toastEl._timeout = setTimeout(() => { toastEl.className = 'toast'; }, 3000);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function extractThinking(text) {
+  let thinkingParts = [];
+  let answerText = text;
+  let isThinking = false;
+
+  // Extract all complete <think>...</think> blocks
+  const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+  let match;
+  while ((match = thinkRegex.exec(text)) !== null) {
+    thinkingParts.push(match[1].trim());
+  }
+  answerText = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+  // Check for unclosed <think> — still generating thinking
+  const lastOpen = text.lastIndexOf('<think>');
+  const lastClose = text.lastIndexOf('</think>');
+  if (lastOpen > lastClose) {
+    isThinking = true;
+    const partialThink = text.substring(lastOpen + 7).trim();
+    if (partialThink) thinkingParts.push(partialThink);
+    answerText = text.substring(0, lastOpen).replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  }
+
+  // Join all thinking parts
+  const thinking = thinkingParts.join('\n\n');
+  return { thinking, answer: answerText, isThinking };
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+
+  // Escape HTML in the raw text first
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Code blocks: ```code```
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><code>${code.trim()}</code></pre>`;
+  });
+
+  // Inline code: `code`
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Bold: **text**
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic: *text*
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Newlines to <br> or <p>
+  const paragraphs = html.split('\n\n');
+  html = paragraphs.map(p => {
+    const lines = p.trim().split('\n');
+    return '<p>' + lines.join('<br>') + '</p>';
+  }).join('');
+
+  return html;
+}
+
+// ── Init ──
+function init() {
+  renderConvList();
+  if (conversations.length > 0) {
+    switchConversation(conversations[0].id);
+  } else {
+    welcome.style.display = 'flex';
+  }
+  userInput.focus();
+}
+
+init();
+</script>
+</body>
+</html>
