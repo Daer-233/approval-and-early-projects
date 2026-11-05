@@ -154,3 +154,15 @@ text,label
 ```
 
 标签建议使用英文小写和下划线，方便 Dify 工作流判断。
+
+## 开源依赖与来源
+
+### 实际使用
+
+- [PyTorch](https://github.com/pytorch/pytorch)：运行本地模型推理。
+- [Transformers](https://github.com/huggingface/transformers)：加载模型与分词器。
+- [scikit-learn](https://github.com/scikit-learn/scikit-learn)：支持意图分类的训练与评估。
+- [NumPy](https://github.com/numpy/numpy)：处理模型输入和数组。
+- [Pydantic](https://github.com/pydantic/pydantic)：定义数据结构。
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)：实现 MCP 服务和工具通信。
+- [Dify](https://github.com/langgenius/dify)：作为文档演示的 MCP 调用端。
