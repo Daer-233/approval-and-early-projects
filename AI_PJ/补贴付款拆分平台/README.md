@@ -47,3 +47,18 @@ docker compose up -d --build
 ## 后续扩展建议
 
 一期使用本地卷和内存任务状态，适合单机内部使用。接入正式钉钉前建议增加：登录/钉钉免登、SQLite/PostgreSQL 任务记录、Redis/Celery 异步队列、对象存储、操作日志和规则管理员权限。
+
+## 开源依赖与来源
+
+### 实际使用
+
+- [FastAPI](https://github.com/fastapi/fastapi)：提供后端 HTTP API。
+- [Uvicorn](https://github.com/encode/uvicorn)：运行 ASGI 服务。
+- [python-multipart](https://github.com/Kludex/python-multipart)：处理表单文件上传。
+- [openpyxl](https://pypi.org/project/openpyxl/)：读取 Excel 工作簿并生成拆分结果。
+- [React / React DOM](https://github.com/facebook/react)：渲染 Web 界面。
+- [Vite](https://github.com/vitejs/vite)：本地开发与前端构建。
+- [Docker Compose](https://github.com/docker/compose)：启动前后端容器。
+- [Nginx](https://github.com/nginx/nginx)：同源提供页面和 API 代理。
+- [Node.js](https://github.com/nodejs/node)：在构建镜像中运行 Vite。
+- [Python](https://github.com/python/cpython)：在后端镜像中运行应用。
